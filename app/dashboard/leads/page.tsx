@@ -18,11 +18,13 @@ export default async function LeadsPage(props: PageProps<'/dashboard/leads'>) {
   const { sites, agents } = await getDirectory(user);
 
   // Links from the overview cards arrive with filters already applied.
+  // Owner filter is admin-only; agents always see only their assigned leads.
   const initialFilters: LeadFilters = {
     search: first(params.search),
     status: first(params.status),
+    quality: first(params.quality),
     site: first(params.site),
-    assignedTo: first(params.assignedTo),
+    assignedTo: user.role === 'admin' ? first(params.assignedTo) : '',
   };
 
   return (

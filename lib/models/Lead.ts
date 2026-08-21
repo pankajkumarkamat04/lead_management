@@ -1,11 +1,18 @@
 import mongoose, { Schema, type Model, type Types } from 'mongoose';
-import { LEAD_STATUSES, type LeadStatus } from '../constants';
+import {
+  LEAD_QUALITIES,
+  LEAD_STATUSES,
+  type LeadQuality,
+  type LeadStatus,
+} from '../constants';
 
 export const ACTIVITY_TYPES = [
   'created',
   'note',
   'status',
+  'quality',
   'assign',
+  'email',
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -27,8 +34,10 @@ export interface ILead {
   company?: string;
   message?: string;
   status: LeadStatus;
+  quality: LeadQuality;
   assignedTo?: Types.ObjectId | null;
   assignedAt?: Date | null;
+  lastContactedAt?: Date | null;
   value: number;
   tags: string[];
   /** Anything extra the source form posted, kept verbatim. */
@@ -74,8 +83,15 @@ const leadSchema = new Schema<ILead>(
       default: 'new',
       required: true,
     },
+    quality: {
+      type: String,
+      enum: LEAD_QUALITIES,
+      default: 'unrated',
+      required: true,
+    },
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     assignedAt: { type: Date, default: null },
+    lastContactedAt: { type: Date, default: null },
     value: { type: Number, default: 0, min: 0 },
     tags: { type: [String], default: [] },
     customFields: { type: Schema.Types.Mixed, default: {} },
@@ -96,12 +112,16 @@ const leadSchema = new Schema<ILead>(
   { timestamps: true },
 );
 
-// The dashboard always sorts newest-first, filtered by one of these fields.
 leadSchema.index({ createdAt: -1 });
 leadSchema.index({ assignedTo: 1, createdAt: -1 });
 leadSchema.index({ site: 1, createdAt: -1 });
 leadSchema.index({ status: 1, createdAt: -1 });
+leadSchema.index({ quality: 1, createdAt: -1 });
 
-export const Lead: Model<ILead> =
-  (mongoose.models.Lead as Model<ILead>) ??
-  mongoose.model<ILead>('Lead', leadSchema);
+// Next.js hot-reload keeps the first compiled model; drop it so enum updates
+// (e.g. activity type `quality`) take effect without a full server restart.
+if (mongoose.models.Lead) {
+  mongoose.deleteModel('Lead');
+}
+
+export const Lead: Model<ILead> = mongoose.model<ILead>('Lead', leadSchema);

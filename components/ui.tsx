@@ -5,7 +5,7 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
-import { LEAD_STATUS_LABELS, LEAD_STATUS_STYLES, type LeadStatus } from '@/lib/constants';
+import { LEAD_QUALITY_LABELS, LEAD_QUALITY_STYLES, LEAD_STATUS_LABELS, LEAD_STATUS_STYLES, type LeadQuality, type LeadStatus } from '@/lib/constants';
 
 /**
  * No `use client` directive here on purpose: without one these primitives work
@@ -135,6 +135,19 @@ export function StatusBadge({ status }: { status: LeadStatus }) {
       )}
     >
       {LEAD_STATUS_LABELS[status]}
+    </span>
+  );
+}
+
+export function QualityBadge({ quality }: { quality: LeadQuality }) {
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        LEAD_QUALITY_STYLES[quality],
+      )}
+    >
+      {LEAD_QUALITY_LABELS[quality]}
     </span>
   );
 }

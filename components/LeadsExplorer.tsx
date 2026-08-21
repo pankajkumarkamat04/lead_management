@@ -11,18 +11,26 @@ import {
   EmptyState,
   Field,
   Input,
+  QualityBadge,
   Select,
   Spinner,
   StatusBadge,
   Textarea,
 } from './ui';
 import { apiFetch, formatRelative } from '@/lib/client';
-import { LEAD_STATUSES, LEAD_STATUS_LABELS, type Role } from '@/lib/constants';
+import {
+  LEAD_QUALITIES,
+  LEAD_QUALITY_LABELS,
+  LEAD_STATUSES,
+  LEAD_STATUS_LABELS,
+  type Role,
+} from '@/lib/constants';
 import type { LeadDTO, Paginated, SiteDTO, UserDTO } from '@/lib/types';
 
 export interface LeadFilters {
   search: string;
   status: string;
+  quality: string;
   site: string;
   assignedTo: string;
 }
@@ -69,6 +77,7 @@ export function LeadsExplorer({
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
     if (filters.status) params.set('status', filters.status);
+    if (filters.quality) params.set('quality', filters.quality);
     if (filters.site) params.set('site', filters.site);
     if (filters.assignedTo) params.set('assignedTo', filters.assignedTo);
     params.set('page', String(page));
@@ -120,12 +129,16 @@ export function LeadsExplorer({
   function clearFilters() {
     setPage(1);
     setSearchDraft('');
-    setFilters({ search: '', status: '', site: '', assignedTo: '' });
+    setFilters({ search: '', status: '', quality: '', site: '', assignedTo: '' });
   }
 
   const leads = result?.data ?? [];
   const hasFilters = Boolean(
-    filters.search || filters.status || filters.site || filters.assignedTo,
+    filters.search ||
+      filters.status ||
+      filters.quality ||
+      filters.site ||
+      filters.assignedTo,
   );
 
   function toggleOne(id: string) {
@@ -170,11 +183,17 @@ export function LeadsExplorer({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-            Leads
+            {isAdmin ? 'All leads' : 'My leads'}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {result
-              ? `${result.total} lead${result.total === 1 ? '' : 's'}${hasFilters ? ' matching your filters' : ''}`
+              ? `${result.total} lead${result.total === 1 ? '' : 's'}${
+                  hasFilters
+                    ? ' matching your filters'
+                    : isAdmin
+                      ? ' across every website'
+                      : ' assigned to you'
+                }`
               : 'Loading…'}
           </p>
         </div>
@@ -186,8 +205,8 @@ export function LeadsExplorer({
       </header>
 
       <Card className="p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="relative sm:col-span-2 lg:col-span-1">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="relative sm:col-span-2 lg:col-span-1 xl:col-span-2">
             <Icon
               name="search"
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
@@ -210,6 +229,19 @@ export function LeadsExplorer({
             {LEAD_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {LEAD_STATUS_LABELS[status]}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            value={filters.quality}
+            onChange={(event) => updateFilter('quality', event.target.value)}
+            aria-label="Filter by quality"
+          >
+            <option value="">All qualities</option>
+            {LEAD_QUALITIES.map((quality) => (
+              <option key={quality} value={quality}>
+                {LEAD_QUALITY_LABELS[quality]}
               </option>
             ))}
           </Select>
@@ -258,15 +290,15 @@ export function LeadsExplorer({
       {error && <Alert>{error}</Alert>}
 
       {isAdmin && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white">
-          <span className="text-sm font-medium">
+        <div className="sticky top-3 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-md">
+          <span className="rounded-full bg-brand-50 px-2.5 py-1 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-600/20">
             {selected.size} selected
           </span>
           <Select
             value={bulkTarget}
             onChange={(event) => setBulkTarget(event.target.value)}
             aria-label="Assign selected leads to"
-            className="w-auto min-w-44 flex-1 sm:flex-none"
+            className="w-full min-w-44 max-w-xs flex-1 sm:w-auto sm:flex-none"
           >
             <option value="">Assign to…</option>
             <option value="unassigned">Unassigned queue</option>
@@ -277,20 +309,24 @@ export function LeadsExplorer({
             ))}
           </Select>
           <Button
+            type="button"
+            variant="primary"
             onClick={runBulkAssign}
             disabled={!bulkTarget || bulkPending}
-            className="bg-white text-slate-900 hover:bg-slate-100"
           >
             {bulkPending && <Spinner />}
             Apply
           </Button>
-          <button
+          <Button
             type="button"
-            onClick={() => setSelected(new Set())}
-            className="text-sm text-slate-300 hover:text-white"
+            variant="secondary"
+            onClick={() => {
+              setSelected(new Set());
+              setBulkTarget('');
+            }}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
@@ -305,7 +341,9 @@ export function LeadsExplorer({
           description={
             hasFilters
               ? 'Try widening your search or clearing the filters.'
-              : 'Connect a website on the Integration page, or add a lead by hand.'
+              : isAdmin
+                ? 'Connect a website on the Integration page, or add a lead by hand.'
+                : 'When an admin assigns leads to you, they will appear here.'
           }
           action={
             hasFilters ? (
@@ -340,11 +378,15 @@ export function LeadsExplorer({
                   <th scope="col" className="px-4 py-3 font-medium">Lead</th>
                   <th scope="col" className="px-4 py-3 font-medium">Website</th>
                   <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Quality</th>
                   {isAdmin && (
                     <th scope="col" className="px-4 py-3 font-medium">Owner</th>
                   )}
                   <th scope="col" className="px-4 py-3 text-right font-medium">
                     Received
+                  </th>
+                  <th scope="col" className="px-4 py-3 text-right font-medium">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -380,6 +422,9 @@ export function LeadsExplorer({
                     <td className="px-4 py-3">
                       <StatusBadge status={lead.status} />
                     </td>
+                    <td className="px-4 py-3">
+                      <QualityBadge quality={lead.quality} />
+                    </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-slate-600">
                         {lead.assignedTo?.name || (
@@ -389,6 +434,28 @@ export function LeadsExplorer({
                     )}
                     <td className="px-4 py-3 text-right text-slate-500">
                       {formatRelative(lead.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        {lead.phone && (
+                          <a
+                            href={`tel:${lead.phone}`}
+                            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                            title="Call"
+                            aria-label={`Call ${lead.name}`}
+                          >
+                            <Icon name="phone" className="size-4" />
+                          </a>
+                        )}
+                        <Link
+                          href={`/dashboard/leads/${lead.id}`}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-brand-700"
+                          title="Manage"
+                          aria-label={`Manage ${lead.name}`}
+                        >
+                          <Icon name="edit" className="size-4" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -413,7 +480,10 @@ export function LeadsExplorer({
                         {lead.site?.name ?? '—'}
                       </p>
                     </div>
-                    <StatusBadge status={lead.status} />
+                    <div className="flex flex-col items-end gap-1">
+                      <StatusBadge status={lead.status} />
+                      <QualityBadge quality={lead.quality} />
+                    </div>
                   </div>
 
                   <div className="mt-3 space-y-1 text-xs text-slate-500">

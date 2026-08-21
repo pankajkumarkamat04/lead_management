@@ -1,10 +1,14 @@
 import type {
   ActivityDTO,
   LeadDTO,
+  MailLogDTO,
+  MailSettingsDTO,
   RefDTO,
   SiteDTO,
   UserDTO,
 } from './types';
+import type { LeadQuality } from './constants';
+import { LEAD_QUALITIES } from './constants';
 
 type Loose = Record<string, unknown>;
 
@@ -31,6 +35,12 @@ function toRef(value: unknown): RefDTO | null {
   }
 
   return { id: String(value), name: '' };
+}
+
+function toQuality(value: unknown): LeadQuality {
+  return (LEAD_QUALITIES as readonly string[]).includes(String(value))
+    ? (value as LeadQuality)
+    : 'unrated';
 }
 
 /**
@@ -96,8 +106,10 @@ export function serializeLead(input: object): LeadDTO {
     company: str(lead.company),
     message: str(lead.message),
     status: (lead.status as LeadDTO['status']) ?? 'new',
+    quality: toQuality(lead.quality),
     assignedTo: toRef(lead.assignedTo),
     assignedAt: iso(lead.assignedAt),
+    lastContactedAt: iso(lead.lastContactedAt),
     value: Number(lead.value ?? 0),
     tags: Array.isArray(lead.tags) ? lead.tags.map(String) : [],
     customFields: (lead.customFields ?? {}) as Record<string, unknown>,
@@ -111,5 +123,46 @@ export function serializeLead(input: object): LeadDTO {
       : [],
     createdAt: iso(lead.createdAt) ?? '',
     updatedAt: iso(lead.updatedAt) ?? '',
+  };
+}
+
+export function serializeMailSettings(input: object): MailSettingsDTO {
+  const settings = input as Loose;
+  const host = str(settings.host);
+  const fromEmail = str(settings.fromEmail);
+
+  return {
+    enabled: settings.enabled === true,
+    host,
+    port: Number(settings.port ?? 587),
+    secure: settings.secure === true,
+    username: str(settings.username),
+    hasPassword: Boolean(settings.password),
+    fromName: str(settings.fromName) || 'Lead Desk',
+    fromEmail,
+    replyTo: str(settings.replyTo),
+    lastTestedAt: iso(settings.lastTestedAt),
+    lastTestOk:
+      typeof settings.lastTestOk === 'boolean' ? settings.lastTestOk : null,
+    lastTestError: str(settings.lastTestError),
+    configured: Boolean(host && fromEmail),
+  };
+}
+
+export function serializeMailLog(input: object): MailLogDTO {
+  const log = input as Loose;
+
+  return {
+    id: str(log._id),
+    lead: toRef(log.lead),
+    templateKey: str(log.templateKey),
+    templateName: str(log.templateName),
+    to: str(log.to),
+    subject: str(log.subject),
+    body: str(log.body),
+    status: log.status === 'failed' ? 'failed' : 'sent',
+    error: str(log.error),
+    sentBy: toRef(log.sentBy),
+    createdAt: iso(log.createdAt) ?? '',
   };
 }

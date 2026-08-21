@@ -52,6 +52,22 @@ export function formatDateTime(value: string | null): string {
   });
 }
 
+/** Full stamp with weekday + seconds — used on lead detail for received time. */
+export function formatDateTimeFull(value: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
 /** Compact "3h ago" style stamp used in tables and the activity timeline. */
 export function formatRelative(value: string | null): string {
   if (!value) return '—';

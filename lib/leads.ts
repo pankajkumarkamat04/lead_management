@@ -1,5 +1,10 @@
 import { Types, type QueryFilter } from 'mongoose';
-import { LEAD_STATUSES, type LeadStatus } from './constants';
+import {
+  LEAD_QUALITIES,
+  LEAD_STATUSES,
+  type LeadQuality,
+  type LeadStatus,
+} from './constants';
 import type { ILead } from './models/Lead';
 import type { IUser } from './models/User';
 
@@ -9,7 +14,8 @@ import type { IUser } from './models/User';
  * path composes this so a missing check cannot leak another agent's pipeline.
  */
 export function scopeForUser(user: IUser): QueryFilter<ILead> {
-  return user.role === 'admin' ? {} : { assignedTo: user._id };
+  if (user.role === 'admin') return {};
+  return { assignedTo: new Types.ObjectId(String(user._id)) };
 }
 
 /** Escapes user input before it is used inside a regular expression. */
@@ -60,18 +66,29 @@ export function buildLeadFilter(
     if (requested.length) filter.status = { $in: requested };
   }
 
+  const quality = params.get('quality')?.trim();
+  if (quality) {
+    const requested = quality
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value): value is LeadQuality =>
+        (LEAD_QUALITIES as readonly string[]).includes(value),
+      );
+    if (requested.length) filter.quality = { $in: requested };
+  }
+
   const site = params.get('site')?.trim();
   if (site && isValidObjectId(site)) {
     filter.site = new Types.ObjectId(site);
   }
 
-  // Agents are already pinned to their own leads by `scopeForUser`, so this
-  // filter is only meaningful for administrators.
-  const assignedTo = params.get('assignedTo')?.trim();
-  if (assignedTo && user.role === 'admin') {
+  // Owner filter is admin-only. Agents are always locked to their own queue
+  // (re-applied below so nothing in this builder can widen their access).
+  if (user.role === 'admin') {
+    const assignedTo = params.get('assignedTo')?.trim();
     if (assignedTo === 'unassigned') {
       filter.assignedTo = null;
-    } else if (isValidObjectId(assignedTo)) {
+    } else if (assignedTo && isValidObjectId(assignedTo)) {
       filter.assignedTo = new Types.ObjectId(assignedTo);
     }
   }
@@ -88,6 +105,10 @@ export function buildLeadFilter(
       range.$lte = end;
     }
     if (Object.keys(range).length) filter.createdAt = range;
+  }
+
+  if (user.role !== 'admin') {
+    filter.assignedTo = new Types.ObjectId(String(user._id));
   }
 
   return filter;

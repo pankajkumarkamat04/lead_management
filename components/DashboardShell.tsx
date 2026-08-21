@@ -17,6 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: 'overview' },
   { href: '/dashboard/leads', label: 'Leads', icon: 'leads' },
+  { href: '/dashboard/mail', label: 'Mail', icon: 'mail' },
   { href: '/dashboard/sites', label: 'Websites', icon: 'sites', adminOnly: true },
   { href: '/dashboard/users', label: 'Team', icon: 'team', adminOnly: true },
   { href: '/dashboard/integration', label: 'Integration', icon: 'code' },

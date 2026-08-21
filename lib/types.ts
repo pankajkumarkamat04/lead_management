@@ -1,4 +1,9 @@
-import type { LeadStatus, Role } from './constants';
+import type {
+  LeadQuality,
+  LeadStatus,
+  MailLogStatus,
+  Role,
+} from './constants';
 import type { ActivityType } from './models/Lead';
 
 /** Minimal shape used wherever a lead references a site or a user. */
@@ -48,8 +53,10 @@ export interface LeadDTO {
   company: string;
   message: string;
   status: LeadStatus;
+  quality: LeadQuality;
   assignedTo: RefDTO | null;
   assignedAt: string | null;
+  lastContactedAt: string | null;
   value: number;
   tags: string[];
   customFields: Record<string, unknown>;
@@ -57,6 +64,37 @@ export interface LeadDTO {
   activities: ActivityDTO[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MailSettingsDTO {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  /** True when a password is stored; the actual value is never returned. */
+  hasPassword: boolean;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  lastTestedAt: string | null;
+  lastTestOk: boolean | null;
+  lastTestError: string;
+  configured: boolean;
+}
+
+export interface MailLogDTO {
+  id: string;
+  lead: RefDTO | null;
+  templateKey: string;
+  templateName: string;
+  to: string;
+  subject: string;
+  body: string;
+  status: MailLogStatus;
+  error: string;
+  sentBy: RefDTO | null;
+  createdAt: string;
 }
 
 export interface Paginated<T> {

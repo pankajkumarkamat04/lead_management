@@ -3,7 +3,7 @@ import { Types } from 'mongoose';
 import { z } from 'zod';
 import { ApiError, apiHandler, parseBody } from '@/lib/api';
 import { requireAdmin, requireUser } from '@/lib/auth/session';
-import { LEAD_STATUSES, LEAD_STATUS_LABELS } from '@/lib/constants';
+import { LEAD_QUALITIES, LEAD_QUALITY_LABELS, LEAD_STATUSES, LEAD_STATUS_LABELS } from '@/lib/constants';
 import { isValidObjectId, scopeForUser } from '@/lib/leads';
 import { Lead, type ILeadActivity } from '@/lib/models/Lead';
 import { Site } from '@/lib/models/Site';
@@ -40,9 +40,12 @@ const updateLeadSchema = z.object({
   company: z.string().trim().max(200).optional(),
   message: z.string().trim().max(5000).optional(),
   status: z.enum(LEAD_STATUSES).optional(),
+  quality: z.enum(LEAD_QUALITIES).optional(),
   assignedTo: z.string().nullable().optional(),
   value: z.number().min(0).optional(),
   tags: z.array(z.string().trim()).optional(),
+  /** Marks the lead as contacted right now (Call / Email quick actions). */
+  markContacted: z.boolean().optional(),
 });
 
 export const PATCH = apiHandler(async (request, context: Context) => {
@@ -64,6 +67,35 @@ export const PATCH = apiHandler(async (request, context: Context) => {
       createdAt: now,
     });
     lead.status = input.status;
+  }
+
+  if (input.quality && input.quality !== lead.quality) {
+    activities.push({
+      type: 'quality',
+      message: `Quality changed from ${LEAD_QUALITY_LABELS[lead.quality ?? 'unrated']} to ${LEAD_QUALITY_LABELS[input.quality]}.`,
+      actor: user._id,
+      createdAt: now,
+    });
+    lead.quality = input.quality;
+  }
+
+  if (input.markContacted) {
+    lead.lastContactedAt = now;
+    if (lead.status === 'new') {
+      activities.push({
+        type: 'status',
+        message: `Status changed from ${LEAD_STATUS_LABELS.new} to ${LEAD_STATUS_LABELS.contacted}.`,
+        actor: user._id,
+        createdAt: now,
+      });
+      lead.status = 'contacted';
+    }
+    activities.push({
+      type: 'note',
+      message: 'Marked as contacted.',
+      actor: user._id,
+      createdAt: now,
+    });
   }
 
   // Reassignment is an administrator action; agents can work a lead but cannot
