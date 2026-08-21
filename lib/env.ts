@@ -26,6 +26,44 @@ export function getAuthSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+/**
+ * Turns `https://leads.example.com/`, `leads.example.com`, or
+ * `http://localhost:3000` into a clean origin with no trailing slash.
+ * Bare domains default to https.
+ */
+export function normalizePublicUrl(value: string): string {
+  let url = value.trim().replace(/\/+$/, '');
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  return url;
+}
+
+/**
+ * Public base URL of this dashboard.
+ *
+ * Set either in `.env.local`:
+ * - `APP_URL=https://leads.example.com`  (preferred)
+ * - `DOMAIN=leads.example.com`           (same thing; https assumed)
+ *
+ * Used to build the lead intake URL shown in the Integration page and docs.
+ * Pass `fallback` (usually the current request origin) when the env var is unset.
+ */
+export function getAppUrl(fallback = ''): string {
+  const raw =
+    process.env.APP_URL?.trim() ||
+    process.env.DOMAIN?.trim() ||
+    fallback;
+  return normalizePublicUrl(raw);
+}
+
+/** Full public lead intake endpoint: `{APP_URL}/api/v1/leads`. */
+export function getLeadsApiUrl(fallbackBase = ''): string {
+  const base = getAppUrl(fallbackBase);
+  return base ? `${base}/api/v1/leads` : '/api/v1/leads';
+}
+
 export const SESSION_COOKIE = 'lms_session';
 
 /** Seven days, expressed in seconds for cookie maxAge and JWT expiry alike. */

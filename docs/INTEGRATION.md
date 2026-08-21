@@ -7,11 +7,22 @@ Connect any website form to **Lead Desk** so enquiries from all of your brands l
 1. Sign in as an **admin**.
 2. Open **Websites** and add each domain (e.g. `maxkeys.online`).
 3. Copy the site’s **API key**.
-4. Point that site’s contact / quote form at:
+4. Set the dashboard public URL in `.env.local` (or your host env):
 
 ```
-POST https://YOUR-DASHBOARD-HOST/api/v1/leads
+APP_URL=https://leads.yourdomain.com
+# or just the domain — https is assumed:
+# DOMAIN=leads.yourdomain.com
 ```
+
+That makes the lead API:
+
+```
+POST https://leads.yourdomain.com/api/v1/leads
+```
+
+Point every site’s contact / quote form at that URL (also shown on the
+**Integration** page after login).
 
 5. Authenticate with the API key (see below).
 6. New leads appear under **Leads**. If you set a **default assignee** on the site, they are assigned automatically.

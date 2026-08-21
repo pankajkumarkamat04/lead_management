@@ -8,10 +8,13 @@ import type { SiteDTO } from '@/lib/types';
 
 export function IntegrationGuide({
   baseUrl,
+  leadsApiUrl,
   sites,
   isAdmin,
 }: {
   baseUrl: string;
+  /** Prefers APP_URL / DOMAIN from env, then the request host. */
+  leadsApiUrl: string;
   sites: SiteDTO[];
   isAdmin: boolean;
 }) {
@@ -19,7 +22,7 @@ export function IntegrationGuide({
   const [copied, setCopied] = useState<string | null>(null);
 
   const site = sites.find((row) => row.id === siteId) ?? sites[0];
-  const endpoint = `${baseUrl}/api/v1/leads`;
+  const endpoint = leadsApiUrl || (baseUrl ? `${baseUrl}/api/v1/leads` : '/api/v1/leads');
   const apiKey = site?.apiKey ?? 'lms_your_api_key_here';
 
   const snippets = useMemo(
@@ -125,6 +128,12 @@ export function IntegrationGuide({
 
       <Card className="space-y-4">
         <h2 className="text-sm font-semibold text-slate-900">Endpoint</h2>
+        <p className="text-sm text-slate-500">
+          Set <code className="text-xs">APP_URL</code> or{' '}
+          <code className="text-xs">DOMAIN</code> in{' '}
+          <code className="text-xs">.env.local</code> so this URL is fixed for
+          every site you connect.
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <code className="rounded-md bg-slate-50 px-2.5 py-1.5 font-mono text-xs text-slate-800 ring-1 ring-slate-200">
             POST {endpoint || '/api/v1/leads'}
@@ -138,6 +147,11 @@ export function IntegrationGuide({
             {copied === 'endpoint' ? 'Copied' : 'Copy'}
           </Button>
         </div>
+        {baseUrl && (
+          <p className="text-xs text-slate-400">
+            Base: <code>{baseUrl}</code>
+          </p>
+        )}
 
         {isAdmin && sites.length > 0 && (
           <div>
@@ -214,6 +228,15 @@ export function IntegrationGuide({
       <Card className="space-y-2 text-sm text-slate-600">
         <h2 className="text-sm font-semibold text-slate-900">Tips</h2>
         <ul className="list-disc space-y-1 pl-5">
+          <li>
+            Production example:{' '}
+            <code className="text-xs">APP_URL=https://leads.yourdomain.com</code>{' '}
+            → API{' '}
+            <code className="text-xs">
+              https://leads.yourdomain.com/api/v1/leads
+            </code>
+            .
+          </li>
           <li>
             Prefer putting the API key in a server-side env var when possible.
             Browser forms expose the key — treat it like a publishable key and

@@ -34,7 +34,13 @@ Edit `.env.local`:
 ```
 MONGODB_URI=mongodb://127.0.0.1:27017/lead-desk
 AUTH_SECRET=paste-a-long-random-string-at-least-32-chars
+APP_URL=http://localhost:3000
 ```
+
+`APP_URL` (or `DOMAIN`) is the public host of this dashboard. It builds the lead
+API URL as `{APP_URL}/api/v1/leads` for the Integration page and site wiring.
+In production set e.g. `APP_URL=https://leads.yourdomain.com` or
+`DOMAIN=leads.yourdomain.com`.
 
 ### 2. Install & seed admin
 
