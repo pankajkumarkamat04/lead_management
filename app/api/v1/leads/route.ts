@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { corsHeaders, isOriginAllowed } from '@/lib/cors';
+import { debugLog, debugWarn, redactObject } from '@/lib/debug';
 import { Lead } from '@/lib/models/Lead';
 import { Site } from '@/lib/models/Site';
 
@@ -108,12 +109,19 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await readPayload(request);
 
+    debugLog('leads/intake', 'Incoming request', {
+      origin,
+      contentType: request.headers.get('content-type'),
+      payload: redactObject(payload),
+    });
+
     const apiKey =
       request.headers.get('x-api-key')?.trim() ||
       request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() ||
       text(payload.apiKey ?? payload.api_key, 200);
 
     if (!apiKey) {
+      debugWarn('leads/intake', 'Missing API key', { origin });
       return json({ error: 'Missing API key.' }, 401);
     }
 
@@ -123,25 +131,46 @@ export async function POST(request: NextRequest) {
       'name isActive allowedOrigins defaultAssignee',
     );
 
-    if (!site) return json({ error: 'Invalid API key.' }, 401);
+    if (!site) {
+      debugWarn('leads/intake', 'Invalid API key', { origin });
+      return json({ error: 'Invalid API key.' }, 401);
+    }
     if (!site.isActive) {
+      debugWarn('leads/intake', 'Site inactive', { site: site.name, origin });
       return json({ error: 'This site is not accepting leads.' }, 403);
     }
 
-    if (!isOriginAllowed(origin, site.allowedOrigins)) {
+    const originAllowed = isOriginAllowed(origin, site.allowedOrigins);
+    debugLog('leads/intake', 'Site resolved', {
+      site: site.name,
+      origin,
+      originAllowed,
+      allowedOrigins: site.allowedOrigins,
+    });
+
+    if (!originAllowed) {
+      debugWarn('leads/intake', 'Origin blocked', {
+        site: site.name,
+        origin,
+        allowedOrigins: site.allowedOrigins,
+      });
       return json({ error: 'Origin not allowed for this site.' }, 403);
     }
 
     // Silently accept bot submissions so the bot sees success and moves on,
     // while nothing reaches the pipeline.
     const trapped = HONEYPOT_FIELDS.some((field) => text(payload[field]));
-    if (trapped) return json({ ok: true, id: null }, 202);
+    if (trapped) {
+      debugLog('leads/intake', 'Honeypot triggered — ignored', { site: site.name });
+      return json({ ok: true, id: null }, 202);
+    }
 
     const name = resolveName(payload);
     const email = text(payload.email, 200).toLowerCase();
     const phone = text(payload.phone ?? payload.tel ?? payload.telephone, 50);
 
     if (!name && !email && !phone) {
+      debugWarn('leads/intake', 'Missing contact fields', { site: site.name });
       return json(
         { error: 'Provide at least a name, email address, or phone number.' },
         422,
@@ -166,6 +195,10 @@ export async function POST(request: NextRequest) {
       }).select('_id');
 
       if (recent) {
+        debugLog('leads/intake', 'Duplicate suppressed', {
+          site: site.name,
+          leadId: String(recent._id),
+        });
         return json({ ok: true, id: String(recent._id), duplicate: true }, 200);
       }
     }
@@ -210,6 +243,13 @@ export async function POST(request: NextRequest) {
       { _id: site._id },
       { $inc: { leadCount: 1 }, $set: { lastLeadAt: new Date() } },
     );
+
+    debugLog('leads/intake', 'Lead saved', {
+      site: site.name,
+      leadId: String(lead._id),
+      email: email || null,
+      phone: phone || null,
+    });
 
     // Lets a no-JavaScript HTML form land on a thank-you page.
     const redirect = text(payload.redirect, 500);

@@ -3,10 +3,26 @@
  * expects JSON, and turns an error response into a thrown `Error` carrying the
  * server's message so forms can show something useful.
  */
+import { clientDebug, redactObject } from './debug';
+
+function debugBody(body: RequestInit['body']): unknown {
+  if (typeof body !== 'string') return body;
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    return redactObject(parsed);
+  } catch {
+    return body;
+  }
+}
+
 export async function apiFetch<T>(
   url: string,
   init: RequestInit = {},
 ): Promise<T> {
+  clientDebug('client', `${init.method ?? 'GET'} ${url}`, {
+    body: debugBody(init.body),
+  });
+
   const response = await fetch(url, {
     ...init,
     headers: {
@@ -16,6 +32,8 @@ export async function apiFetch<T>(
   });
 
   const payload = await response.json().catch(() => null);
+
+  clientDebug('client', `Response ${response.status} ${url}`, payload);
 
   if (!response.ok) {
     const message =

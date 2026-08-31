@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ApiError, apiHandler, parseBody } from '@/lib/api';
 import { verifyPassword } from '@/lib/auth/password';
 import { startSession } from '@/lib/auth/session';
+import { debugLog, debugWarn } from '@/lib/debug';
 import { User } from '@/lib/models/User';
 import { serializeUser } from '@/lib/serialize';
 
@@ -13,18 +14,28 @@ const loginSchema = z.object({
 
 export const POST = apiHandler(async (request) => {
   const { email, password } = await parseBody(request, loginSchema);
+  const normalizedEmail = email.toLowerCase().trim();
 
-  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  debugLog('auth/login', 'Attempt', { email: normalizedEmail });
+
+  const user = await User.findOne({ email: normalizedEmail });
 
   // Same message for unknown email and wrong password so the form cannot be
   // used to discover which addresses have accounts.
   const invalid = new ApiError(401, 'Invalid email or password.');
-  if (!user) throw invalid;
+  if (!user) {
+    debugWarn('auth/login', 'No user for email', { email: normalizedEmail });
+    throw invalid;
+  }
 
   const passwordMatches = await verifyPassword(password, user.passwordHash);
-  if (!passwordMatches) throw invalid;
+  if (!passwordMatches) {
+    debugWarn('auth/login', 'Wrong password', { email: normalizedEmail });
+    throw invalid;
+  }
 
   if (!user.isActive) {
+    debugWarn('auth/login', 'Inactive account', { email: normalizedEmail });
     throw new ApiError(403, 'This account has been deactivated.');
   }
 
@@ -37,6 +48,12 @@ export const POST = apiHandler(async (request) => {
 
   user.lastLoginAt = new Date();
   await user.save();
+
+  debugLog('auth/login', 'Success', {
+    email: user.email,
+    role: user.role,
+    userId: String(user._id),
+  });
 
   return NextResponse.json({ user: serializeUser(user.toObject()) });
 });

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { debugLog, debugWarn } from './debug';
 import { getMongoUri } from './env';
 
 /**
@@ -21,8 +22,12 @@ const cache: MongooseCache = (globalForMongoose._mongooseCache ??= {
 });
 
 export async function connectToDatabase(): Promise<typeof mongoose> {
-  if (cache.conn) return cache.conn;
+  if (cache.conn) {
+    debugLog('db', 'Reusing cached MongoDB connection');
+    return cache.conn;
+  }
 
+  debugLog('db', 'Opening MongoDB connection…');
   cache.promise ??= mongoose
     .connect(getMongoUri(), {
       bufferCommands: false,
@@ -34,9 +39,13 @@ export async function connectToDatabase(): Promise<typeof mongoose> {
       // Clear the cached promise so the next request retries instead of
       // permanently rethrowing this one rejection.
       cache.promise = null;
+      debugWarn('db', 'MongoDB connection failed', error);
       throw error;
     });
 
   cache.conn = await cache.promise;
+  debugLog('db', 'MongoDB connected', {
+    readyState: cache.conn.connection.readyState,
+  });
   return cache.conn;
 }

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '@/lib/client';
+import { clientDebug } from '@/lib/debug';
 import { Alert, Button, Field, Input, Spinner } from './ui';
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {
@@ -17,16 +18,22 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
     setError(null);
     setPending(true);
 
+    clientDebug('login', 'Submitting sign-in', { email, redirectTo });
+
     try {
       await apiFetch('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
 
+      clientDebug('login', 'Sign-in OK — redirecting', { redirectTo });
       router.replace(redirectTo);
       // Server components cache the signed-out state, so refresh after login.
       router.refresh();
     } catch (caught) {
+      clientDebug('login', 'Sign-in failed', {
+        message: (caught as Error).message,
+      });
       setError((caught as Error).message);
       setPending(false);
     }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifySession } from './lib/auth/jwt';
+import { debugLog } from './lib/debug';
 import { SESSION_COOKIE } from './lib/env';
 
 /** Sections only administrators may open. */
@@ -10,6 +11,11 @@ export async function proxy(request: NextRequest) {
   const session = await verifySession(
     request.cookies.get(SESSION_COOKIE)?.value,
   );
+
+  debugLog('proxy', `${request.method} ${pathname}`, {
+    hasSession: Boolean(session),
+    role: session?.role ?? null,
+  });
 
   if (pathname === '/login') {
     return session
