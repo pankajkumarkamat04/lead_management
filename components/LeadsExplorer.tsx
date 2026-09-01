@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { captureError, FormError } from '@/components/FormError';
 import { Modal } from './Modal';
 import { Icon } from './icons';
 import {
@@ -93,7 +94,7 @@ export function LeadsExplorer({
       setResult(data);
       setSelected(new Set());
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setLoading(false);
     }
@@ -172,7 +173,7 @@ export function LeadsExplorer({
       setBulkTarget('');
       await load();
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setBulkPending(false);
     }
@@ -287,7 +288,7 @@ export function LeadsExplorer({
         )}
       </Card>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <FormError error={error} />}
 
       {isAdmin && selected.size > 0 && (
         <div className="sticky top-3 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-md">
@@ -585,7 +586,7 @@ function AddLeadModal({
       });
       onCreated();
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setPending(false);
     }
@@ -604,7 +605,7 @@ function AddLeadModal({
         </Alert>
       ) : (
         <form onSubmit={onSubmit} className="space-y-4">
-          {error && <Alert>{error}</Alert>}
+          {error && <FormError error={error} />}
 
           <Field label="Website">
             <Select name="site" required defaultValue={sites[0]?.id}>

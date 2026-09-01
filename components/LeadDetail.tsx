@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { captureError, FormError } from '@/components/FormError';
 import { Modal } from './Modal';
 import { Icon } from './icons';
 import {
@@ -59,16 +60,18 @@ export function LeadDetail({
   const [editing, setEditing] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [mailLogs, setMailLogs] = useState<MailLogDTO[]>([]);
+  const [mailLogError, setMailLogError] = useState<string | null>(null);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
 
   const loadMailLogs = useCallback(async () => {
+    setMailLogError(null);
     try {
       const data = await apiFetch<Paginated<MailLogDTO>>(
         `/api/mail/logs?lead=${lead.id}&pageSize=10`,
       );
       setMailLogs(data.data);
-    } catch {
-      /* non-blocking */
+    } catch (caught) {
+      setMailLogError(captureError(caught));
     }
   }, [lead.id]);
 
@@ -87,7 +90,7 @@ export function LeadDetail({
       setLead(data.lead);
       return true;
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
       return false;
     } finally {
       setPending(false);
@@ -142,7 +145,7 @@ export function LeadDetail({
       setLead(data.lead);
       setNote('');
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setNotePending(false);
     }
@@ -159,7 +162,7 @@ export function LeadDetail({
       router.replace('/dashboard/leads');
       router.refresh();
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
       setPending(false);
     }
   }
@@ -309,7 +312,7 @@ export function LeadDetail({
         )}
       </Card>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <FormError error={error} />}
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
@@ -500,9 +503,12 @@ export function LeadDetail({
                 Compose
               </Button>
             </div>
-            {mailLogs.length === 0 ? (
+            {mailLogError && (
+              <FormError error={mailLogError} />
+            )}
+            {mailLogs.length === 0 && !mailLogError ? (
               <p className="text-sm text-slate-500">No emails sent yet.</p>
-            ) : (
+            ) : mailLogs.length === 0 ? null : (
               <ul className="divide-y divide-slate-100">
                 {mailLogs.map((log) => (
                   <li key={log.id} className="py-3">
@@ -807,8 +813,9 @@ function EmailLeadModal({
           '/api/mail/settings',
         );
         setMailReady(settings.settings.enabled && settings.settings.configured);
-      } catch {
+      } catch (caught) {
         setMailReady(false);
+        setError(captureError(caught));
       }
     })();
   }, [open]);
@@ -840,7 +847,7 @@ function EmailLeadModal({
       );
       onSent(data.lead);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setPending(false);
     }
@@ -863,7 +870,7 @@ function EmailLeadModal({
             .
           </Alert>
         )}
-        {error && <Alert>{error}</Alert>}
+        {error && <FormError error={error} />}
 
         <Field label="Template">
           <Select

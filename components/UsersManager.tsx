@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { captureError, FormError } from '@/components/FormError';
+import { PasswordInput } from '@/components/PasswordInput';
 import { Modal } from './Modal';
 import { Icon } from './icons';
 import {
-  Alert,
   Button,
   Card,
   EmptyState,
@@ -33,7 +34,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
       const data = await apiFetch<{ data: TeamMember[] }>('/api/users');
       setUsers(data.data);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setLoading(false);
     }
@@ -58,7 +59,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
         ),
       );
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     }
   }
 
@@ -75,7 +76,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
       await apiFetch(`/api/users/${user.id}`, { method: 'DELETE' });
       setUsers((current) => current.filter((row) => row.id !== user.id));
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     }
   }
 
@@ -96,7 +97,7 @@ export function UsersManager({ currentUserId }: { currentUserId: string }) {
         </Button>
       </header>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <FormError error={error} />}
 
       {loading ? (
         <Card className="flex items-center justify-center py-16 text-slate-500">
@@ -298,6 +299,12 @@ function UserFormModal({
     const form = new FormData(event.currentTarget);
     const password = String(form.get('password') ?? '');
 
+    if (!user && password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      setPending(false);
+      return;
+    }
+
     try {
       if (user) {
         const body: Record<string, unknown> = {
@@ -327,7 +334,7 @@ function UserFormModal({
         onSaved(data.user);
       }
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setPending(false);
     }
@@ -341,7 +348,7 @@ function UserFormModal({
       description="Agents can only work leads assigned to them. Admins see everything."
     >
       <form onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert>{error}</Alert>}
+        {error && <FormError error={error} />}
 
         <Field label="Full name">
           <Input
@@ -371,13 +378,13 @@ function UserFormModal({
               : 'At least 8 characters.'
           }
         >
-          <Input
+          <PasswordInput
             name="password"
-            type="password"
             required={!user}
             minLength={user ? undefined : 8}
             autoComplete="new-password"
             placeholder="••••••••"
+            disabled={pending}
           />
         </Field>
 

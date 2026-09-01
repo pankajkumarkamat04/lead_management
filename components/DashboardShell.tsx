@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
+import { captureError } from '@/components/FormError';
 import { apiFetch } from '@/lib/client';
 import { Icon, type IconName } from './icons';
 import type { UserDTO } from '@/lib/types';
@@ -39,6 +40,7 @@ export function DashboardShell({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   // Navigating on mobile should dismiss the drawer.
   useEffect(() => setMenuOpen(false), [pathname]);
@@ -49,11 +51,13 @@ export function DashboardShell({
 
   async function signOut() {
     setSigningOut(true);
+    setSignOutError(null);
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
       router.replace('/login');
       router.refresh();
-    } catch {
+    } catch (caught) {
+      setSignOutError(captureError(caught));
       setSigningOut(false);
     }
   }
@@ -118,6 +122,9 @@ export function DashboardShell({
           <Icon name="logout" className="size-[18px]" />
           {signingOut ? 'Signing out…' : 'Sign out'}
         </button>
+        {signOutError && (
+          <p className="mt-2 px-3 text-xs text-rose-400">{signOutError}</p>
+        )}
       </div>
     </>
   );

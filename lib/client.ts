@@ -4,6 +4,7 @@
  * server's message so forms can show something useful.
  */
 import { clientDebug, redactObject } from './debug';
+import { ApiClientError } from './errors';
 
 function debugBody(body: RequestInit['body']): unknown {
   if (typeof body !== 'string') return body;
@@ -15,6 +16,14 @@ function debugBody(body: RequestInit['body']): unknown {
   }
 }
 
+function redirectToLogin(): void {
+  if (typeof window === 'undefined') return;
+  const next = encodeURIComponent(
+    `${window.location.pathname}${window.location.search}`,
+  );
+  window.location.assign(`/login?next=${next}`);
+}
+
 export async function apiFetch<T>(
   url: string,
   init: RequestInit = {},
@@ -23,13 +32,21 @@ export async function apiFetch<T>(
     body: debugBody(init.body),
   });
 
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new ApiClientError(
+      'Could not reach the server. Check your connection and try again.',
+      0,
+    );
+  }
 
   const payload = await response.json().catch(() => null);
 
@@ -37,10 +54,26 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     const message =
-      (payload && typeof payload === 'object' && 'error' in payload
+      payload && typeof payload === 'object' && 'error' in payload
         ? String((payload as { error: unknown }).error)
-        : null) ?? 'Something went wrong. Please try again.';
-    throw new Error(message);
+        : response.status >= 500
+          ? 'The server encountered an error. Please try again shortly.'
+          : `Request failed (${response.status}). Please try again.`;
+
+    const details =
+      payload && typeof payload === 'object' && 'details' in payload
+        ? (payload as { details: unknown }).details
+        : undefined;
+
+    if (
+      response.status === 401 &&
+      !url.includes('/api/auth/login') &&
+      typeof window !== 'undefined'
+    ) {
+      redirectToLogin();
+    }
+
+    throw new ApiClientError(message, response.status, details);
   }
 
   return payload as T;

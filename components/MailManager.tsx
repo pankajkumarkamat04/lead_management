@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { captureError, FormError } from '@/components/FormError';
+import { PasswordInput } from '@/components/PasswordInput';
 import { Modal } from './Modal';
 import {
   Alert,
@@ -114,7 +116,7 @@ function MailSettingsPanel() {
       );
       setSettings(data.settings);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setLoading(false);
     }
@@ -155,7 +157,7 @@ function MailSettingsPanel() {
         event.currentTarget.elements.namedItem('password') as HTMLInputElement
       ).value = '';
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setPending(false);
     }
@@ -176,14 +178,14 @@ function MailSettingsPanel() {
       setSettings(data.settings);
       setSuccess('SMTP connection verified successfully.');
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
       await load();
     } finally {
       setTesting(false);
     }
   }
 
-  if (loading || !settings) {
+  if (loading) {
     return (
       <Card className="flex items-center justify-center py-16 text-slate-500">
         <Spinner className="mr-2" />
@@ -192,10 +194,21 @@ function MailSettingsPanel() {
     );
   }
 
+  if (!settings) {
+    return (
+      <Card className="space-y-4 py-8 text-center">
+        {error && <FormError error={error} />}
+        <Button variant="secondary" onClick={() => void load()}>
+          Try again
+        </Button>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <form onSubmit={onSave} className="space-y-4">
-        {error && <Alert>{error}</Alert>}
+        {error && <FormError error={error} />}
         {success && <Alert tone="success">{success}</Alert>}
 
         <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -255,11 +268,11 @@ function MailSettingsPanel() {
                 : undefined
             }
           >
-            <Input
+            <PasswordInput
               name="password"
-              type="password"
               autoComplete="new-password"
               placeholder={settings.hasPassword ? '••••••••' : ''}
+              disabled={pending}
             />
           </Field>
         </div>
@@ -333,7 +346,7 @@ function MailLogsPanel() {
       );
       setResult(data);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setLoading(false);
     }
@@ -361,7 +374,7 @@ function MailLogsPanel() {
         </Select>
       </div>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <FormError error={error} />}
 
       {loading && !result ? (
         <Card className="flex items-center justify-center py-16 text-slate-500">

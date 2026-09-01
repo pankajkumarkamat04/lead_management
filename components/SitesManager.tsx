@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { captureError, FormError } from '@/components/FormError';
 import { Modal } from './Modal';
 import { Icon } from './icons';
 import {
-  Alert,
   Button,
   Card,
   EmptyState,
@@ -32,7 +32,7 @@ export function SitesManager({ agents }: { agents: UserDTO[] }) {
       const data = await apiFetch<{ data: SiteDTO[] }>('/api/sites');
       setSites(data.data);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export function SitesManager({ agents }: { agents: UserDTO[] }) {
         current.map((row) => (row.id === site.id ? data.site : row)),
       );
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     }
   }
 
@@ -85,7 +85,7 @@ export function SitesManager({ agents }: { agents: UserDTO[] }) {
         current.map((row) => (row.id === site.id ? data.site : row)),
       );
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     }
   }
 
@@ -98,7 +98,7 @@ export function SitesManager({ agents }: { agents: UserDTO[] }) {
       await apiFetch(`/api/sites/${site.id}`, { method: 'DELETE' });
       setSites((current) => current.filter((row) => row.id !== site.id));
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     }
   }
 
@@ -119,7 +119,7 @@ export function SitesManager({ agents }: { agents: UserDTO[] }) {
         </Button>
       </header>
 
-      {error && <Alert>{error}</Alert>}
+      {error && <FormError error={error} />}
 
       {loading ? (
         <Card className="flex items-center justify-center py-16 text-slate-500">
@@ -326,7 +326,7 @@ function SiteFormModal({
           });
       onSaved(data.site);
     } catch (caught) {
-      setError((caught as Error).message);
+      setError(captureError(caught));
     } finally {
       setPending(false);
     }
@@ -340,7 +340,7 @@ function SiteFormModal({
       description="Give each marketing site a name and domain so leads stay organised."
     >
       <form onSubmit={onSubmit} className="space-y-4">
-        {error && <Alert>{error}</Alert>}
+        {error && <FormError error={error} />}
 
         <Field label="Display name">
           <Input
